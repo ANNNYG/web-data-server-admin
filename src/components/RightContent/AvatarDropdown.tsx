@@ -5,11 +5,12 @@ import { stringify } from 'querystring';
 import type { MenuInfo } from 'rc-menu/lib/interface';
 import React, { useCallback } from 'react';
 import { history, useModel } from 'umi';
-import HeaderDropdown from '../HeaderDropdown';
-import styles from './index.less';
 
 import { userLogout } from '@/services/loginApi';
 import { clearLocal } from '@/utils/localStorage';
+
+import HeaderDropdown from '../HeaderDropdown';
+import styles from './index.less';
 
 export type GlobalHeaderRightProps = {
   menu?: boolean;
