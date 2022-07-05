@@ -1,9 +1,8 @@
 import React from 'react';
-import { SelectLang, history } from 'umi';
+import { history } from 'umi';
 
 import { getUacLoginUrl } from '@/services/loginApi';
 import { getQueryString } from '@/utils/url';
-import Footer from '@/components/Footer';
 
 import styles from './index.less';
 
