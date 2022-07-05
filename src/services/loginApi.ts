@@ -13,3 +13,10 @@ export async function getDingLoginInfo(code: string): Promise<any> {
     params: { code },
   });
 }
+
+// 退出登陆
+export async function userLogout(): Promise<any> {
+  return request(`/api/uac/logout`, {
+    method: 'delete',
+  });
+}
