@@ -1,107 +1,100 @@
 import Footer from '@/components/Footer';
 import RightContent from '@/components/RightContent';
-import { BookOutlined, LinkOutlined } from '@ant-design/icons';
 import type { Settings as LayoutSettings } from '@ant-design/pro-components';
-import { PageLoading, SettingDrawer } from '@ant-design/pro-components';
+import { PageLoading } from '@ant-design/pro-components';
 import type { RunTimeLayoutConfig } from 'umi';
-import { history, Link } from 'umi';
-import defaultSettings from '../config/defaultSettings';
-import { currentUser as queryCurrentUser } from './services/ant-design-pro/api';
-
-const isDev = process.env.NODE_ENV === 'development';
-const loginPath = '/user/login';
+import { history } from 'umi';
+import { fetchUserInfo as queryCurrentUser, getAuth, refreshToken } from '@/services/globalApi';
+import {
+  getLocal,
+  setLocal,
+  LOCAL_ACCESS_TOKEN,
+  LOCAL_EXPIRES_IN,
+  LOCAL_REFRESH_TOKEN,
+} from '@/utils/localStorage';
 
 /** 获取用户信息比较慢的时候会展示一个 loading */
 export const initialStateConfig = {
   loading: <PageLoading />,
 };
 
-/**
- * @see  https://umijs.org/zh-CN/plugins/plugin-initial-state
- * */
+const loginPath = '/login';
+const uacPath = '/uaccallback';
+
+const notNeedLogin = (): boolean =>
+  [loginPath, uacPath].some((item) => history.location.pathname.startsWith(item));
+
+const loginUrl = () => {
+  return `${loginPath}?redirect=${history.location.pathname}`;
+};
+
 export async function getInitialState(): Promise<{
   settings?: Partial<LayoutSettings>;
   currentUser?: API.CurrentUser;
-  loading?: boolean;
   fetchUserInfo?: () => Promise<API.CurrentUser | undefined>;
 }> {
   const fetchUserInfo = async () => {
+    // 登陆接口
     try {
-      const msg = await queryCurrentUser();
-      return msg.data;
+      const currentUser = await queryCurrentUser();
+      return currentUser;
     } catch (error) {
-      history.push(loginPath);
+      history.push(loginUrl());
     }
     return undefined;
   };
-  // 如果不是登录页面，执行
-  if (history.location.pathname !== loginPath) {
+
+  // 刷新token
+  const fetchRefreshToken = async () => {
+    try {
+      const localExpiresIn = getLocal(LOCAL_EXPIRES_IN);
+      const localAccessToken = getLocal(LOCAL_ACCESS_TOKEN);
+      const localRefreshToken = getLocal(LOCAL_REFRESH_TOKEN);
+      if (
+        Date.now() > Number(localExpiresIn) - 3600000 * 1.5 &&
+        localAccessToken &&
+        localRefreshToken
+      ) {
+        const result = await refreshToken(localRefreshToken as string);
+        setLocal(LOCAL_ACCESS_TOKEN, result.access_token);
+        setLocal(LOCAL_EXPIRES_IN, (Date.now() + result.expires_in * 1000).toString());
+        setLocal(LOCAL_REFRESH_TOKEN, result.refresh_token);
+      }
+    } catch (error) {
+      history.push(loginPath);
+    }
+  };
+
+  // 如果是登录页面，不执行
+  if (!notNeedLogin()) {
+    await fetchRefreshToken();
     const currentUser = await fetchUserInfo();
+    const currentAuth = await getAuth();
     return {
       fetchUserInfo,
-      currentUser,
-      settings: defaultSettings,
+      currentUser: { ...currentUser, currentAuth },
+      settings: {},
     };
   }
+
   return {
     fetchUserInfo,
-    settings: defaultSettings,
+    settings: {},
   };
 }
 
-// ProLayout 支持的api https://procomponents.ant.design/components/layout
-export const layout: RunTimeLayoutConfig = ({ initialState, setInitialState }) => {
+export const layout: RunTimeLayoutConfig = ({ initialState }) => {
   return {
     rightContentRender: () => <RightContent />,
     disableContentMargin: false,
-    waterMarkProps: {
-      content: initialState?.currentUser?.name,
-    },
     footerRender: () => <Footer />,
     onPageChange: () => {
-      const { location } = history;
       // 如果没有登录，重定向到 login
-      if (!initialState?.currentUser && location.pathname !== loginPath) {
+      if (!initialState?.currentUser && !notNeedLogin()) {
         history.push(loginPath);
       }
     },
-    links: isDev
-      ? [
-          <Link key="openapi" to="/umi/plugin/openapi" target="_blank">
-            <LinkOutlined />
-            <span>OpenAPI 文档</span>
-          </Link>,
-          <Link to="/~docs" key="docs">
-            <BookOutlined />
-            <span>业务组件文档</span>
-          </Link>,
-        ]
-      : [],
     menuHeaderRender: undefined,
-    // 自定义 403 页面
-    // unAccessible: <div>unAccessible</div>,
-    // 增加一个 loading 的状态
-    childrenRender: (children, props) => {
-      // if (initialState?.loading) return <PageLoading />;
-      return (
-        <>
-          {children}
-          {!props.location?.pathname?.includes('/login') && (
-            <SettingDrawer
-              disableUrlParams
-              enableDarkTheme
-              settings={initialState?.settings}
-              onSettingChange={(settings) => {
-                setInitialState((preInitialState) => ({
-                  ...preInitialState,
-                  settings,
-                }));
-              }}
-            />
-          )}
-        </>
-      );
-    },
     ...initialState?.settings,
   };
 };
