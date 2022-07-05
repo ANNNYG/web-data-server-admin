@@ -2,8 +2,11 @@ import Footer from '@/components/Footer';
 import RightContent from '@/components/RightContent';
 import type { Settings as LayoutSettings } from '@ant-design/pro-components';
 import { PageLoading } from '@ant-design/pro-components';
-import type { RunTimeLayoutConfig } from 'umi';
 import { history } from 'umi';
+
+import type { RunTimeLayoutConfig } from 'umi';
+import type { USER_TYPE } from '@/common/globalType';
+
 import { fetchUserInfo as queryCurrentUser, getAuth, refreshToken } from '@/services/globalApi';
 import {
   getLocal,
@@ -30,8 +33,8 @@ const loginUrl = () => {
 
 export async function getInitialState(): Promise<{
   settings?: Partial<LayoutSettings>;
-  currentUser?: API.CurrentUser;
-  fetchUserInfo?: () => Promise<API.CurrentUser | undefined>;
+  currentUser?: USER_TYPE;
+  fetchUserInfo?: () => Promise<USER_TYPE | undefined>;
 }> {
   const fetchUserInfo = async () => {
     // 登陆接口
